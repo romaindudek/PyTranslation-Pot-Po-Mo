@@ -12,14 +12,15 @@ import subprocess
 class PotPoMo:
 
     DIR_PATH = os.getcwd()
+    LOCALES_DIR = os.path.join(os.getcwd(), 'locales')
 
     def init(self, locale, my_file):
         self.locale = locale
         self.my_file = my_file
         if self.check_params_init():
-            self.create_dir(os.path.join(self.DIR_PATH, 'locales'))
+            self.create_dir(self.LOCALES_DIR)
             self.create_the_locale_dirs()
-            self.create_pot()
+            self.build_pot()
             self.copy_pot_to_po()
             print(f"Successfully initiated {self.locale} !")
         else:
@@ -35,12 +36,19 @@ class PotPoMo:
         else:
             print(messages.WRONG_ADD)
 
+    def build(self):
+        self.mo_generate()
+
+    def merge(self, my_file):
+        self.my_file = my_file
+        self.build_pot()
+
     def check_params_add(self):
         return len(self.locale) == 5
 
     def create_the_locale_dirs(self):
-        self.create_dir(os.path.join(self.DIR_PATH, 'locales', self.locale))
-        self.create_dir(os.path.join(self.DIR_PATH, 'locales', self.locale, 'LC_MESSAGES'))
+        self.create_dir(os.path.join(self.LOCALES_DIR, self.locale))
+        self.create_dir(os.path.join(self.LOCALES_DIR, self.locale, 'LC_MESSAGES'))
 
     def create_dir(self, dir_path):
         if not Path(dir_path).is_dir():
@@ -49,26 +57,36 @@ class PotPoMo:
         else:
             print(f"{dir_path} directory allready exists")
 
-    def create_pot(self):
+    def build_pot(self):
         try:
             subprocess.run(['xgettext', '-d', 'base', '-o', 'locales/base.pot', os.path.join(self.DIR_PATH, self.my_file)])
         except subprocess.CalledProcessError as e:
             print(e.output)
     
     def mo_generate(self):
-        subs = [f.name for f in os.scandir(os.path.join(self.DIR_PATH, 'locales')) if f.is_dir()]
-        print([x for x in subs])
+        subs = self.subs()
         for subdir in subs:
             try:
-                subprocess.run(['msgfmt', '-o', os.path.join(self.DIR_PATH, 'locales', subdir, 'LC_MESSAGES', 'base.mo'), os.path.join(self.DIR_PATH, 'locales', subdir, 'LC_MESSAGES', 'base') ])
+                subprocess.run(['msgfmt', '-o', os.path.join(self.LOCALES_DIR, subdir, 'LC_MESSAGES', 'base.mo'), os.path.join(self.LOCALES_DIR, subdir, 'LC_MESSAGES', 'base') ])
+            except subprocess.CalledProcessError as e:
+                print(e.output)
+
+    def po_merge(self):
+        subs = self.subs()
+        for subdir in subs:
+            try:
+                subprocess.run(['msgmerge', '--update', os.path.join(self.LOCALES_DIR, subdir, 'LC_MESSAGES', 'base.po'),  'locales/base.pot'])
             except subprocess.CalledProcessError as e:
                 print(e.output)
 
     def copy_pot_to_po(self):
-        copyfile(os.path.join(self.DIR_PATH, 'locales', 'base.pot'), os.path.join(self.DIR_PATH, 'locales', self.locale, 'LC_MESSAGES', 'base.po'))
+        copyfile(os.path.join(self.LOCALES_DIR, 'base.pot'), os.path.join(self.LOCALES_DIR, self.locale, 'LC_MESSAGES', 'base.po'))
 
     def check_params_init(self):
         return len(self.locale) == 5 and self.my_file[-3:] == '.py'
+
+    def subs(self):
+        return [f.name for f in os.scandir(os.path.join(self.LOCALES_DIR)) if f.is_dir()]
 
 
 potpomo = PotPoMo()
@@ -97,8 +115,8 @@ class messages:
 
     [-build]        :   Create the .mo files 
 
-    [-add_keys]     :   [parameter] = <file_to_translate (.py)>
-                        Rebuild the .pot file, adding the new keys found in the file_to_translate
+    [-merge]        :   [parameter] = <file_to_translate (.py)>
+                        Regenerate .pot then merge it with the existing .po files to add new keys to translate
     
     [-code]         :   Generate the code to add in your .py file to be shure to translate correctly on the client side
 """
@@ -114,7 +132,6 @@ Something is wrong with the parameter :
 
 [parameter] = <current_locale (fr_FR, en_US, es_ES etc...)>
 """
-
 
 def main(argv):
 
@@ -132,9 +149,11 @@ def main(argv):
     if argv[0] == '-add' and argv[1]:
         potpomo.add(argv[1])
     
-    if argv[0] == '-build' and argv[1]:
-        print("go for it")
-        potpomo.add(argv[1])
+    if argv[0] == '-build':
+        potpomo.build()
+    
+    if argv[0] == '-merge' and argv[1]:
+        potpomo.merge(argv[1])
 
 if __name__ == "__main__":
     main(sys.argv[1:])
