@@ -4,4 +4,4 @@
 
 import locale
 
-print(_("C'est un truc à traduire"))
+print(_("C'est un autre truc à traduire"))

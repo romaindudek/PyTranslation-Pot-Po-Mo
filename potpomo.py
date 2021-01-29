@@ -42,6 +42,7 @@ class PotPoMo:
     def merge(self, my_file):
         self.my_file = my_file
         self.build_pot()
+        self.po_merge()
 
     def check_params_add(self):
         return len(self.locale) == 5
@@ -106,7 +107,7 @@ class messages:
                             |                               |_ base.po
                             |_ base.pot
 
-    [-add]    :   [parameter] = <new_locale> 
+    [-add]          :   [parameter] = <new_locale> 
                         Create a new branch in the current tree for your new_locale :
 
                         locale/
@@ -153,6 +154,7 @@ def main(argv):
         potpomo.build()
     
     if argv[0] == '-merge' and argv[1]:
+        print("Gogogo !")
         potpomo.merge(argv[1])
 
 if __name__ == "__main__":
